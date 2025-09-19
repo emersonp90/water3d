@@ -263,6 +263,10 @@ function fitMobile(){
     const target = Math.max(260, window.innerHeight - topH - margin);
     v.style.height = target + 'px';
   }
+  // After CSS height changes, notify 3Dmol to resize its canvas
+  if (typeof viewer !== 'undefined' && viewer && typeof viewer.resize === 'function') {
+    try { viewer.resize(); viewer.render(); } catch(e) { /* ignore */ }
+  }
 }
 }
 
@@ -303,6 +307,7 @@ async function init(){
   wireUI();
   fitMobile();
   window.addEventListener('resize', fitMobile);
+  window.addEventListener('orientationchange', ()=>setTimeout(fitMobile, 120));
 }
 window.addEventListener('DOMContentLoaded', init);
 </script>

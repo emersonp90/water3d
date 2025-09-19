@@ -15,7 +15,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:
 .controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.5rem}
 button{border:1px solid #d1d5db;background:#fff;padding:.45rem .65rem;border-radius:.6rem;cursor:pointer}
 label.chk{display:flex;align-items:center;gap:.35rem}
-.layout{display:flex;min-height:calc(100vh - 86px)} #viewer{flex:1;min-width:0;height:calc(100vh - 86px)}
+.layout{display:flex;min-height:calc(100dvh - 86px)} #viewer{flex:1;min-width:0;height:calc(100dvh - 86px)}
 aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12px}
 .section h3{margin:.2rem 0 .4rem 0;font-size:1rem}
 .movie{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.3rem}
@@ -114,7 +114,8 @@ function showFrame(i){
   if(nframes<=0) return;
   const idx = ((i % nframes)+nframes)%nframes;
   cur=idx;
-  if(model.setFrame) model.setFrame(idx); else viewer.setFrame(idx);
+  if(model.setFrame) model.setFrame(idx);
+  viewer.zoomTo({}, 0); else viewer.setFrame(idx);
   document.getElementById('cur').textContent=idx+1;
   document.getElementById('slider').value=idx+1;
   viewer.render();

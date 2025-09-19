@@ -228,11 +228,50 @@ function wireUI(){
   document.getElementById('btnHideAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=false; renderElemTable(); applyBallsFromStates(); });
 }
 
+
+async function robustLoadPDB(pdbpath){
+  // Resolve relative to current page
+  const url = new URL(pdbpath, location.href).toString();
+  let lastErr = null;
+  let tried = [];
+  async function attempt(u){
+    tried.push(u);
+    const resp = await fetch(u, {cache:'no-store', mode:'cors'});
+    if(!resp.ok) throw new Error('HTTP '+resp.status+' for '+u);
+    const buf = await resp.arrayBuffer();
+    // Try to ungzip; if it fails, treat as plain text
+    try{
+      const text = pako.inflate(new Uint8Array(buf), {to:'string'});
+      return text;
+    }catch(_){
+      try{
+        const text = new TextDecoder().decode(new Uint8Array(buf));
+        return text;
+      }catch(e){
+        throw new Error('Failed to decode PDB text');
+      }
+    }
+  }
+  try{
+    return await attempt(url);
+  }catch(e){
+    lastErr = e;
+  }
+  // Fallback: if it ends with .gz, try without .gz
+  if(/\.gz(\?|#|$)/.test(url)){
+    const alt = url.replace(/\.gz(\?|#|$)/, '$1');
+    try{
+      return await attempt(alt);
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('Unable to load PDB from '+url+' (tried: '+tried.join(', ')+')');
+}
+
 async function init(){
   viewer=$3Dmol.createViewer('viewer',{backgroundColor:'white'});
   const params = new URLSearchParams(location.search); const pdbgz = params.get('pdb') || 'h2o.pdb.gz'; document.getElementById('note').textContent = 'Fetching ' + pdbgz + ' …';
   try{
-    const resp = await fetch(pdbgz,{cache:'no-store'}); if(!resp.ok) throw new Error(resp.status+' '+resp.statusText); const buf = await resp.arrayBuffer(); const pdb = pako.inflate(new Uint8Array(buf), {to:'string'});
+    const pdb = await robustLoadPDB(pdbgz);
     viewer.addModelsAsFrames(pdb, 'pdb', {keepH:true});
     model = viewer.getModel();
     patchElementsIfNeeded();

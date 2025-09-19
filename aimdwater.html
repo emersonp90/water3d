@@ -254,16 +254,16 @@ function wireUI(){
 }
 
 function fitMobile(){
-  // For small screens, ensure the viewer gets the right amount of height
+  // On small screens, make the 3D viewer fill almost all vertical space under the top bar.
   if (window.matchMedia('(max-width: 720px)').matches) {
     const topbar = document.querySelector('.topbar');
-    const aside = document.querySelector('aside');
-    const topH = topbar ? topbar.offsetHeight : 0;
-    const asideH = aside ? aside.offsetHeight : 0;
-    const extra = 20; const target = Math.max(260, window.innerHeight - topH - asideH - 12 - extra);
     const v = document.getElementById('viewer');
+    const topH = topbar ? topbar.offsetHeight : 0;
+    const margin = 16; // matches CSS margin around #viewer
+    const target = Math.max(260, window.innerHeight - topH - margin);
     v.style.height = target + 'px';
   }
+}
 }
 
 async function init(){

@@ -32,7 +32,7 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 /* Mobile-friendly layout */
 @media (max-width: 720px){
   .layout{display:block}
-  #viewer{height:76dvh; margin:20px 10px 0 10px; border:1px solid var(--border); border-radius:10px;}
+  #viewer{height:74dvh; margin:40px 10px 0 10px; border:1px solid var(--border); border-radius:10px;}
   aside{position:sticky;bottom:0;width:auto;max-width:none;border-left:none;border-top:1px solid var(--border);
         padding:10px 12px calc(env(safe-area-inset-bottom) + 12px); background:#fff; z-index:9;
         box-shadow:0 -8px 20px rgba(0,0,0,0.08);}
@@ -42,7 +42,7 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 }
 
 @media (max-width: 720px){
-  .topbar{ position: static; top:auto; z-index:auto; box-shadow:none; }
+  .topbar{ position: sticky; top: 0; z-index: 10; }
   .topbar .hint{ display:none; }
 }
 </style>
@@ -154,7 +154,7 @@ function fitWithPadding(){
   // Fit all atoms, then zoom out a bit so box/axes and labels aren't clipped.
   viewer.zoomTo(); // fit
   const isPhone = window.matchMedia('(max-width: 720px)').matches;
-  const factor = isPhone ? 0.78 : 0.88; // <1 => zoom OUT
+  const factor = isPhone ? 0.72 : 0.88; // <1 => zoom OUT
   viewer.zoom(factor);
   viewer.render();
 }

@@ -142,7 +142,17 @@ function loop(ts){
 }
 function play(){ if(playing || !model) return; playing=true; lastT=0; document.getElementById('play').textContent='Pause'; rafId=requestAnimationFrame(loop); }
 function stop(){ if(!playing) return; playing=false; if(rafId){cancelAnimationFrame(rafId); rafId=null;} document.getElementById('play').textContent='Play'; }
-function resetView(){ stop(); showFrame(0); viewer.zoomTo(); viewer.render(); }
+function resetView(){ stop(); showFrame(0); fitWithPadding(); }
+
+function fitWithPadding(){
+  if(!viewer) return;
+  // Fit all atoms, then zoom out a bit so box/axes and labels aren't clipped.
+  viewer.zoomTo(); // fit
+  const isPhone = window.matchMedia('(max-width: 720px)').matches;
+  const factor = isPhone ? 0.78 : 0.88; // <1 => zoom OUT
+  viewer.zoom(factor);
+  viewer.render();
+}
 
 function removeBox(){ for(const s of boxShapes) viewer.removeShape(s); boxShapes=[]; }
 function removeAxes(){ for(const s of axisShapes) viewer.removeShape(s); axisShapes=[]; for(const l of axisLabels) viewer.removeLabel(l); axisLabels=[]; }
@@ -231,8 +241,8 @@ function wireUI(){
   document.getElementById('slider').addEventListener('input', e=>{ if(!model) return; stop(); const v=Math.max(1,Math.min(nframes,+e.target.value))-1; showFrame(v); });
   document.getElementById('play').addEventListener('click', ()=>{ if(!model) return; if(playing) stop(); else play(); });
 
-  document.getElementById('chkBox').addEventListener('change', (e)=>{ if(e.target.checked) drawBoxOnce(); else removeBox(); viewer.render(); });
-  document.getElementById('chkAxes').addEventListener('change', (e)=>{ if(e.target.checked) drawAxesOnce(); else removeAxes(); viewer.render(); });
+  document.getElementById('chkBox').addEventListener('change', (e)=>{ if(e.target.checked) drawBoxOnce(); else removeBox(); fitWithPadding(); });
+  document.getElementById('chkAxes').addEventListener('change', (e)=>{ if(e.target.checked) drawAxesOnce(); else removeAxes(); fitWithPadding(); });
 
   document.getElementById('btnShowAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=true; renderElemTable(); applyBallsFromStates(); });
   document.getElementById('btnHideAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=false; renderElemTable(); applyBallsFromStates(); });
@@ -268,7 +278,7 @@ async function init(){
     buildElementStates();
     renderElemTable();
     applyBallsFromStates();
-    viewer.zoomTo(); viewer.render();
+    viewer.zoomTo(); viewer.render(); fitWithPadding();
 
     nframes = (model.getFrameCount && model.getFrameCount()) || (model.frames ? model.frames.length : 1) || 1;
     document.getElementById('tot').textContent = nframes;
@@ -278,6 +288,7 @@ async function init(){
     // Start with Box/Axes OFF by default
     if(document.getElementById('chkBox').checked) drawBoxOnce();
     if(document.getElementById('chkAxes').checked) drawAxesOnce();
+    fitWithPadding();
 
     document.getElementById('note').textContent = 'Frames: ' + nframes + ' (1 frame = 1 attosecond)';
   }catch(e){

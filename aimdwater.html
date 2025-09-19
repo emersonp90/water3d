@@ -32,7 +32,7 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 /* Mobile-friendly layout */
 @media (max-width: 720px){
   .layout{display:block}
-  #viewer{height:74dvh; margin:8px 8px 0 8px; border:1px solid var(--border); border-radius:10px;}
+  #viewer{height:76dvh; margin:20px 10px 0 10px; border:1px solid var(--border); border-radius:10px;}
   aside{position:sticky;bottom:0;width:auto;max-width:none;border-left:none;border-top:1px solid var(--border);
         padding:10px 12px calc(env(safe-area-inset-bottom) + 12px); background:#fff; z-index:9;
         box-shadow:0 -8px 20px rgba(0,0,0,0.08);}
@@ -245,7 +245,7 @@ function fitMobile(){
     const aside = document.querySelector('aside');
     const topH = topbar ? topbar.offsetHeight : 0;
     const asideH = aside ? aside.offsetHeight : 0;
-    const target = Math.max(240, window.innerHeight - topH - asideH - 12);
+    const extra = 20; const target = Math.max(260, window.innerHeight - topH - asideH - 12 - extra);
     const v = document.getElementById('viewer');
     v.style.height = target + 'px';
   }

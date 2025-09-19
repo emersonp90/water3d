@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Open on your phone via QR Code</title>
+<style>
+  :root{--border:#e5e7eb;--muted:#6b7280;--ink:#111827;--bg:#fafafa;}
+  html,body{height:100%;margin:0;}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#fff;}
+  .wrap{max-width:780px;margin:0 auto;padding:18px;}
+  h1{margin:0 0 10px 0;font-size:clamp(1.1rem,2.6vw,1.4rem);}
+  .muted{color:var(--muted);}
+  .card{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--bg);}
+  .qrbox{display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);
+         border-radius:12px;background:#fff;padding:12px;margin-top:8px;min-height:280px;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;}
+  .btn{border:1px solid #d1d5db;background:#111827;color:#fff;border-radius:10px;
+       padding:.6rem 1.0rem;cursor:pointer}
+  .btn.secondary{background:#fff;color:#111827}
+  code{color:#374151;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Open on your phone via QR Code</h1>
+    <div class="muted">This QR points to: <code id="url"></code></div>
+    <div class="card">
+      <div class="qrbox"><div id="qrcode"></div></div>
+      <div class="row">
+        <button class="btn" id="open">Open viewer</button>
+        <button class="btn secondary" id="download">Download QR (PNG)</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const REPO = 'water3d';
+  const FILE = 'aimdwater.html';
+
+  function buildUrl(){
+    // If hosted on GitHub Pages (username.github.io), build absolute URL.
+    if (location.hostname.endsWith('github.io')) {
+      return `https://${location.hostname}/${REPO}/${FILE}`;
+    }
+    // Otherwise, use a relative link so it still works locally.
+    return FILE;
+  }
+  function makeQR(el, text){
+    const img = new Image();
+    img.alt = 'QR code';
+    img.style.maxWidth = '100%';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=' + encodeURIComponent(text);
+    el.innerHTML = '';
+    el.appendChild(img);
+  }
+  const url = buildUrl();
+  document.getElementById('url').textContent = url;
+  makeQR(document.getElementById('qrcode'), url);
+  document.getElementById('open').addEventListener('click', ()=>window.open(url,'_blank'));
+  document.getElementById('download').addEventListener('click', ()=>{
+    const img = document.querySelector('#qrcode img');
+    if(!img) return;
+    const a = document.createElement('a');
+    a.href = img.src; a.download = 'water3d_qr.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+</script>
+</body>
+</html>

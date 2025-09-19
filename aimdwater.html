@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>H2O Trajectory Viewer — v9</title>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<style>
+:root{--ink:#111827;--muted:#6b7280;--border:#e5e7eb;--bg:#fafafa;}
+*{box-sizing:border-box} html,body{height:100%;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#fff}
+.topbar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--border);padding:.6rem .9rem}
+.brand{font-weight:700;margin-bottom:.25rem} .hint{color:var(--muted);font-size:.92rem}
+.controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.5rem}
+button{border:1px solid #d1d5db;background:#fff;padding:.45rem .65rem;border-radius:.6rem;cursor:pointer}
+label.chk{display:flex;align-items:center;gap:.35rem}
+.layout{display:flex;min-height:calc(100vh - 86px)} #viewer{flex:1;min-width:0;height:calc(100vh - 86px)}
+aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12px}
+.section h3{margin:.2rem 0 .4rem 0;font-size:1rem}
+.movie{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.3rem}
+.movie input[type=range]{width:240px}
+.small{font-size:.85rem;color:var(--muted)}
+.elements{margin-top:.6rem;border:1px solid var(--border);border-radius:.6rem;overflow:hidden}
+.table{width:100%;border-collapse:collapse;font-size:.92rem}
+.table th,.table td{border-bottom:1px solid var(--border);padding:.45rem .5rem;text-align:left}
+.table th{background:#f8fafc;font-weight:600}
+.badge{display:inline-block;width:18px;height:18px;border-radius:.35rem;border:1px solid #d1d5db;vertical-align:middle}
+.footer{margin-top:.5rem;font-size:.85rem;color:var(--muted)}
+.toolbar{display:flex;gap:.5rem;justify-content:flex-end;padding:.45rem .5rem;border-bottom:1px solid var(--border);background:#f8fafc}
+@media (max-width:720px){.layout{display:block} #viewer{height:62dvh} aside{width:auto;max-width:none;border-left:none;border-top:1px solid var(--border)} .movie input[type=range]{width:60vw}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">H2O Trajectory Viewer</div>
+  <div class="hint">drag to rotate • pinch/scroll to zoom • pan with two fingers</div>
+  <div class="controls">
+    <span style="font-weight:600">Style:</span> <span>Balls</span>
+    <label class="chk"><input type="checkbox" id="chkBox">Box</label>
+    <label class="chk"><input type="checkbox" id="chkAxes">Axes (x,y,z)</label>
+    <button id="btnReset" type="button">Reset view</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div id="viewer"></div>
+  <aside>
+    <div class="section">
+      <h3>Movie</h3>
+      <div class="movie">
+        <button id="prev">Prev</button>
+        <button id="play">Play</button>
+        <button id="next">Next</button>
+        <span><span id="cur">1</span>/<span id="tot">1</span></span>
+        <input type="range" id="slider" min="1" max="1" value="1">
+      </div>
+      <div class="movie">
+        <label>Speed
+          <select id="speed">
+            <option value="60">60 fps</option>
+            <option value="120" selected>120 fps</option>
+            <option value="240">240 fps</option>
+            <option value="480">480 fps</option>
+          </select>
+        </label>
+      </div>
+      <div class="small" id="note">Loading…</div>
+    </div>
+
+    <div class="section">
+      <h3>Elements</h3>
+      <div class="elements">
+        <div class="toolbar">
+          <button id="btnShowAll">Show all</button>
+          <button id="btnHideAll">Hide all</button>
+        </div>
+        <table class="table" id="elemTable">
+          <thead><tr><th>Elem</th><th>Color</th><th>Count</th><th>Show</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="footer">Built with 3Dmol.js (BSD 3‑Clause). Source: <a href="https://3dmol.org" target="_blank">https://3dmol.org</a>.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+function normalizeLF(s){ return s.replace(/\r\n?|\r/g,'\n'); }
+
+let viewer, model=null, nframes=1, cur=0;
+let playing=false, rafId=null, lastT=0;
+let fpsWanted = 120;
+let boxShapes=[], axisShapes=[], axisLabels=[];
+
+const elemColor = {'H':'#ffffff','O':'#ef4444','N':'#3b82f6','C':'#9ca3af','Zn':'#6b7280'};
+const elemScale = {'H':0.40,'O':0.55,'N':0.52,'C':0.52,'Zn':0.58,'DEFAULT':0.50};
+let elemStates = {};
+
+function applyBallsFromStates(){
+  if(!model) return;
+  model.setStyle({}, {});
+  for(const [el, st] of Object.entries(elemStates)){
+    if(!st.show) continue;
+    const scale = elemScale[el] || elemScale.DEFAULT;
+    const color = st.color || elemColor[el] || '#cbd5e1';
+    model.setStyle({elem:el}, {sphere:{scale:scale, color:color}});
+  }
+  viewer.render();
+}
+
+function showFrame(i){
+  if(!model) return;
+  if(nframes<=0) return;
+  const idx = ((i % nframes)+nframes)%nframes;
+  cur=idx;
+  if(model.setFrame) model.setFrame(idx); else viewer.setFrame(idx);
+  document.getElementById('cur').textContent=idx+1;
+  document.getElementById('slider').value=idx+1;
+  viewer.render();
+}
+
+function loop(ts){
+  if(!playing) return;
+  if(!lastT) lastT=ts;
+  const dt = ts - lastT;
+  const step = Math.max(1, Math.floor(dt * fpsWanted / 1000));
+  lastT = ts;
+  showFrame(cur + step);
+  rafId = requestAnimationFrame(loop);
+}
+function play(){ if(playing || !model) return; playing=true; lastT=0; document.getElementById('play').textContent='Pause'; rafId=requestAnimationFrame(loop); }
+function stop(){ if(!playing) return; playing=false; if(rafId){cancelAnimationFrame(rafId); rafId=null;} document.getElementById('play').textContent='Play'; }
+function resetView(){ stop(); showFrame(0); viewer.zoomTo(); viewer.render(); }
+
+function removeBox(){ for(const s of boxShapes) viewer.removeShape(s); boxShapes=[]; }
+function removeAxes(){ for(const s of axisShapes) viewer.removeShape(s); axisShapes=[]; for(const l of axisLabels) viewer.removeLabel(l); axisLabels=[]; }
+
+function drawBoxOnce(){
+  if(boxShapes.length) return;
+  const a = viewer.selectedAtoms({}); if(!a || !a.length) return;
+  let minx=Infinity,miny=Infinity,minz=Infinity,maxx=-Infinity,maxy=-Infinity,maxz=-Infinity;
+  for(const at of a){ minx=Math.min(minx,at.x); miny=Math.min(miny,at.y); minz=Math.min(minz,at.z);
+                      maxx=Math.max(maxx,at.x); maxy=Math.max(maxy,at.y); maxz=Math.max(maxz,at.z);}
+  const O=[minx,miny,minz], X=[maxx,miny,minz], Y=[minx,maxy,minz], Z=[minx,miny,maxz];
+  const XY=[maxx,maxy,minz], XZ=[maxx,miny,maxz], YZ=[minx,maxy,maxz], XYZ=[maxx,maxy,maxz];
+  const edges=[[O,X],[O,Y],[O,Z],[X,XY],[X,XZ],[Y,XY],[Y,YZ],[Z,XZ],[Z,YZ],[XY,XYZ],[XZ,XYZ],[YZ,XYZ]];
+  for(const [p,q] of edges){
+    const shp = viewer.addCylinder({start:{x:p[0],y:p[1],z:p[2]}, end:{x:q[0],y:q[1],z:q[2]}, radius:0.08, fromCap:true, toCap:true, color:'#4b5563', opacity:1.0});
+    boxShapes.push(shp);
+  }
+}
+
+function drawAxesOnce(){
+  if(axisShapes.length || axisLabels.length) return;
+  const a = viewer.selectedAtoms({}); if(!a || !a.length) return;
+  let minx=Infinity,miny=Infinity,minz=Infinity,maxx=-Infinity,maxy=-Infinity,maxz=-Infinity;
+  for(const at of a){ minx=Math.min(minx,at.x); miny=Math.min(miny,at.y); minz=Math.min(minz,at.z);
+                      maxx=Math.max(maxx,at.x); maxy=Math.max(maxy,at.y); maxz=Math.max(maxz,at.z);}
+  const sx=maxx-minx, sy=maxy-miny, sz=maxz-minz;
+  const Oa=[minx-0.15*sx, miny-0.15*sy, minz-0.15*sz];
+  axisShapes.push(viewer.addArrow({start:{x:Oa[0],y:Oa[1],z:Oa[2]}, end:{x:Oa[0]+0.9*sx,y:Oa[1],z:Oa[2]}, radius:0.15, color:'#ef4444'}));
+  axisShapes.push(viewer.addArrow({start:{x:Oa[0],y:Oa[1],z:Oa[2]}, end:{x:Oa[0],y:Oa[1]+0.9*sy,z:Oa[2]}, radius:0.15, color:'#10b981'}));
+  axisShapes.push(viewer.addArrow({start:{x:Oa[0],y:Oa[1],z:Oa[2]}, end:{x:Oa[0],y:Oa[1],z:Oa[2]+0.9*sz}, radius:0.15, color:'#3b82f6'}));
+  const labelColor = '#111827';
+  axisLabels.push(viewer.addLabel('x', {position:{x:Oa[0]+0.9*sx,y:Oa[1],z:Oa[2]}, backgroundOpacity:0, fontSize:14, fontColor:labelColor}));
+  axisLabels.push(viewer.addLabel('y', {position:{x:Oa[0],y:Oa[1]+0.9*sy,z:Oa[2]}, backgroundOpacity:0, fontSize:14, fontColor:labelColor}));
+  axisLabels.push(viewer.addLabel('z', {position:{x:Oa[0],y:Oa[1],z:Oa[2]+0.9*sz}, backgroundOpacity:0, fontSize:14, fontColor:labelColor}));
+}
+
+function patchElementsIfNeeded(){
+  if(!model) return;
+  const atoms = model.selectedAtoms({});
+  if(!atoms || !atoms.length) return;
+  const set = new Set(atoms.map(a=>a.elem));
+  if(set.size===1){
+    for(const at of atoms){
+      const nm = (at.atom||'').trim().toUpperCase();
+      if(nm.startsWith('H')) at.elem='H';
+      else if(nm.startsWith('O')) at.elem='O';
+      else if(nm.startsWith('C')) at.elem='C';
+      else if(nm.startsWith('N')) at.elem='N';
+      else if(nm.startsWith('ZN')) at.elem='Zn';
+    }
+  }
+}
+
+function buildElementStates(){
+  elemStates = {};
+  const atoms = model.selectedAtoms({}) || [];
+  for(const at of atoms){
+    const el = at.elem || 'X';
+    elemStates[el] = elemStates[el] || {show:true,count:0,color:elemColor[el]||'#cbd5e1'};
+    elemStates[el].count += 1;
+  }
+}
+
+function renderElemTable(){
+  const tbody = document.querySelector('#elemTable tbody');
+  tbody.innerHTML = '';
+  const els = Object.keys(elemStates).sort((a,b)=>a.localeCompare(b));
+  for(const el of els){
+    const st = elemStates[el];
+    const tr = document.createElement('tr');
+    const tdE = document.createElement('td'); tdE.textContent = el; tr.appendChild(tdE);
+    const tdC = document.createElement('td'); const sw = document.createElement('span'); sw.className='badge'; sw.style.background = st.color; tdC.appendChild(sw); tr.appendChild(tdC);
+    const tdN = document.createElement('td'); tdN.textContent = st.count; tr.appendChild(tdN);
+    const tdS = document.createElement('td'); const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=!!st.show;
+    cb.addEventListener('change',()=>{ st.show = cb.checked; applyBallsFromStates(); });
+    tdS.appendChild(cb); tr.appendChild(tdS);
+    tbody.appendChild(tr);
+  }
+}
+
+function wireUI(){
+  document.getElementById('btnReset').addEventListener('click', resetView);
+  document.getElementById('prev').addEventListener('click', ()=>{ if(!model) return; stop(); showFrame(cur-1); });
+  document.getElementById('next').addEventListener('click', ()=>{ if(!model) return; stop(); showFrame(cur+1); });
+  document.getElementById('speed').addEventListener('change', (e)=>{ fpsWanted = Math.max(1, parseInt(e.target.value,10)||120); });
+  document.getElementById('slider').addEventListener('input', e=>{ if(!model) return; stop(); const v=Math.max(1,Math.min(nframes,+e.target.value))-1; showFrame(v); });
+  document.getElementById('play').addEventListener('click', ()=>{ if(!model) return; if(playing) stop(); else play(); });
+
+  document.getElementById('chkBox').addEventListener('change', (e)=>{ if(e.target.checked) drawBoxOnce(); else removeBox(); viewer.render(); });
+  document.getElementById('chkAxes').addEventListener('change', (e)=>{ if(e.target.checked) drawAxesOnce(); else removeAxes(); viewer.render(); });
+
+  document.getElementById('btnShowAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=true; renderElemTable(); applyBallsFromStates(); });
+  document.getElementById('btnHideAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=false; renderElemTable(); applyBallsFromStates(); });
+}
+
+async function init(){
+  viewer=$3Dmol.createViewer('viewer',{backgroundColor:'white'});
+  const params = new URLSearchParams(location.search); const pdbgz = params.get('pdb') || 'h2o.pdb.gz'; document.getElementById('note').textContent = 'Fetching ' + pdbgz + ' …';
+  try{
+    const resp = await fetch(pdbgz,{cache:'no-store'}); if(!resp.ok) throw new Error(resp.status+' '+resp.statusText); const buf = await resp.arrayBuffer(); const pdb = pako.inflate(new Uint8Array(buf), {to:'string'});
+    viewer.addModelsAsFrames(pdb, 'pdb', {keepH:true});
+    model = viewer.getModel();
+    patchElementsIfNeeded();
+    buildElementStates();
+    renderElemTable();
+    applyBallsFromStates();
+    viewer.zoomTo(); viewer.render();
+
+    nframes = (model.getFrameCount && model.getFrameCount()) || (model.frames ? model.frames.length : 1) || 1;
+    document.getElementById('tot').textContent = nframes;
+    document.getElementById('slider').max = Math.max(1, nframes);
+    showFrame(0);
+
+    // Start with Box/Axes OFF by default; only draw when toggled on
+    if(document.getElementById('chkBox').checked) drawBoxOnce();
+    if(document.getElementById('chkAxes').checked) drawAxesOnce();
+
+    document.getElementById('note').textContent = 'Frames: ' + nframes + ' (1 frame = 1 attosecond)';
+  }catch(e){
+    document.getElementById('note').textContent = 'Error: ' + e.message;
+    console.error(e);
+  }
+  wireUI();
+}
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

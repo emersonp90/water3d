@@ -15,7 +15,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:
 .controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.5rem}
 button{border:1px solid #d1d5db;background:#fff;padding:.45rem .65rem;border-radius:.6rem;cursor:pointer}
 label.chk{display:flex;align-items:center;gap:.35rem}
-.layout{display:flex;min-height:calc(100vh - 86px)} #viewer{flex:1;min-width:0;height:calc(100vh - 86px)}
+.layout{display:flex;min-height:calc(100vh - 86px) padding-top: var(--topbarH,0px);} #viewer{flex:1;min-width:0;height:calc(100vh - 86px)}
 aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12px}
 .section h3{margin:.2rem 0 .4rem 0;font-size:1rem}
 .movie{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.3rem}
@@ -28,7 +28,13 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 .badge{display:inline-block;width:18px;height:18px;border-radius:.35rem;border:1px solid #d1d5db;vertical-align:middle}
 .footer{margin-top:.5rem;font-size:.85rem;color:var(--muted)}
 .toolbar{display:flex;gap:.5rem;justify-content:flex-end;padding:.45rem .5rem;border-bottom:1px solid var(--border);background:#f8fafc}
-@media (max-width:720px){.layout{display:block} #viewer{height:58dvh; margin:120px 10px 10px 10px; border:1px solid var(--border); border-radius:10px;} aside{width:auto;max-width:none;border-left:none;border-top:1px solid var(--border)} .movie input[type=range]{width:60vw}}
+@media (max-width:720px){
+  .hint{display:none}
+  .layout{display:block; padding-top: var(--topbarH,0px);}
+  #viewer{height:60dvh; margin:10px; border:1px solid var(--border); border-radius:10px;}
+  aside{width:auto;max-width:none;border-left:none;border-top:1px solid var(--border);padding:12px;margin-top:8px;background:#fff}
+  .movie input[type=range]{width:100%}
+} #viewer{height:58dvh; margin:120px 10px 10px 10px; border:1px solid var(--border); border-radius:10px;} aside{width:auto;max-width:none;border-left:none;border-top:1px solid var(--border)} .movie input[type=range]{width:60vw}}
 </style>
 </head>
 <body>
@@ -212,6 +218,14 @@ function renderElemTable(){
   }
 }
 
+function applyTopbarSpacer(){
+  const topbar = document.querySelector('.topbar');
+  const h = topbar ? topbar.offsetHeight : 0;
+  document.documentElement.style.setProperty('--topbarH', h + 'px');
+  if (typeof viewer !== 'undefined' && viewer && typeof viewer.resize === 'function') {
+    try { viewer.resize(); viewer.render(); } catch(e) {}
+  }
+}
 function wireUI(){
   document.getElementById('btnReset').addEventListener('click', resetView);
   document.getElementById('prev').addEventListener('click', ()=>{ if(!model) return; stop(); showFrame(cur-1); });
@@ -256,8 +270,8 @@ async function init(){
   }
   wireUI();
 }
-window.addEventListener('DOMContentLoaded', init);
-window.addEventListener('orientationchange', ()=>setTimeout(()=>{ fitMobile(); fitWithPadding(); }, 120));
+window.addEventListener('DOMContentLoaded', ()=>{ applyTopbarSpacer(); init(); });
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{ applyTopbarSpacer(); fitMobile(); fitWithPadding(); }, 120)); fitWithPadding(); }, 120));
 </script>
 </body>
 </html>

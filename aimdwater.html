@@ -40,6 +40,11 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
   .movie input[type=range]{width:100%}
   .controls{gap:.4rem}
 }
+
+@media (max-width: 720px){
+  .topbar{ position: static; top:auto; z-index:auto; box-shadow:none; }
+  .topbar .hint{ display:none; }
+}
 </style>
 </head>
 <body>

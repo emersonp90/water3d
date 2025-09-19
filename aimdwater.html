@@ -131,7 +131,7 @@ function loop(ts){
 }
 function play(){ if(playing || !model) return; playing=true; lastT=0; document.getElementById('play').textContent='Pause'; rafId=requestAnimationFrame(loop); }
 function stop(){ if(!playing) return; playing=false; if(rafId){cancelAnimationFrame(rafId); rafId=null;} document.getElementById('play').textContent='Play'; }
-function resetView(){ stop(); showFrame(0); viewer.zoomTo(); viewer.render(); }
+function resetView(){ stop(); showFrame(0); viewer.zoomTo(); viewer.render(); fitWithPadding(); }
 
 function removeBox(){ for(const s of boxShapes) viewer.removeShape(s); boxShapes=[]; }
 function removeAxes(){ for(const s of axisShapes) viewer.removeShape(s); axisShapes=[]; for(const l of axisLabels) viewer.removeLabel(l); axisLabels=[]; }
@@ -238,7 +238,7 @@ async function init(){
     buildElementStates();
     renderElemTable();
     applyBallsFromStates();
-    viewer.zoomTo(); viewer.render();
+    viewer.zoomTo(); viewer.render(); fitWithPadding();
 
     nframes = (model.getFrameCount && model.getFrameCount()) || (model.frames ? model.frames.length : 1) || 1;
     document.getElementById('tot').textContent = nframes;
@@ -257,6 +257,7 @@ async function init(){
   wireUI();
 }
 window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{ fitMobile(); fitWithPadding(); }, 120));
 </script>
 </body>
 </html>

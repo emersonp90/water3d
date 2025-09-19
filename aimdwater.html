@@ -3,21 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>H2O Trajectory Viewer — AIMD (mobile tuned)</title>
+<title>H2O Trajectory Viewer — v9</title>
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <style>
 :root{--ink:#111827;--muted:#6b7280;--border:#e5e7eb;--bg:#fafafa;}
 *{box-sizing:border-box} html,body{height:100%;margin:0}
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#fff}
-.topbar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--border);
-  padding:calc(env(safe-area-inset-top) + .6rem) .9rem .6rem}
+.topbar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--border);padding:.6rem .9rem}
 .brand{font-weight:700;margin-bottom:.25rem} .hint{color:var(--muted);font-size:.92rem}
 .controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.5rem}
 button{border:1px solid #d1d5db;background:#fff;padding:.45rem .65rem;border-radius:.6rem;cursor:pointer}
 label.chk{display:flex;align-items:center;gap:.35rem}
 .layout{display:flex;min-height:calc(100vh - 86px)} #viewer{flex:1;min-width:0;height:calc(100vh - 86px)}
-aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12px;background:#fff}
+aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12px}
 .section h3{margin:.2rem 0 .4rem 0;font-size:1rem}
 .movie{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.3rem}
 .movie input[type=range]{width:240px}
@@ -29,22 +28,7 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 .badge{display:inline-block;width:18px;height:18px;border-radius:.35rem;border:1px solid #d1d5db;vertical-align:middle}
 .footer{margin-top:.5rem;font-size:.85rem;color:var(--muted)}
 .toolbar{display:flex;gap:.5rem;justify-content:flex-end;padding:.45rem .5rem;border-bottom:1px solid var(--border);background:#f8fafc}
-/* Mobile-friendly layout */
-@media (max-width: 720px){
-  .layout{display:block}
-  #viewer{height:68dvh; margin:88px 10px 0 10px; border:1px solid var(--border); border-radius:10px;}
-  aside{position:sticky;bottom:0;width:auto;max-width:none;border-left:none;border-top:1px solid var(--border);
-        padding:10px 12px calc(env(safe-area-inset-bottom) + 12px); background:#fff; z-index:9;
-        box-shadow:0 -8px 20px rgba(0,0,0,0.08);}
-  .movie{gap:.6rem}
-  .movie input[type=range]{width:100%}
-  .controls{gap:.4rem}
-}
-
-@media (max-width: 720px){
-  .topbar{ position: sticky; top: 0; z-index: 10; }
-  .topbar .hint{ display:none; }
-}
+@media (max-width:720px){.layout{display:block} #viewer{height:62dvh} aside{width:auto;max-width:none;border-left:none;border-top:1px solid var(--border)} .movie input[type=range]{width:60vw}}
 </style>
 </head>
 <body>
@@ -102,7 +86,7 @@ aside{width:420px;max-width:60vw;border-left:1px solid var(--border);padding:12p
 </div>
 
 <script>
-function normalizeLF(s){ return s.replace(/\\r\\n?|\\r/g,'\\n'); }
+function normalizeLF(s){ return s.replace(/\r\n?|\r/g,'\n'); }
 
 let viewer, model=null, nframes=1, cur=0;
 let playing=false, rafId=null, lastT=0;
@@ -147,17 +131,7 @@ function loop(ts){
 }
 function play(){ if(playing || !model) return; playing=true; lastT=0; document.getElementById('play').textContent='Pause'; rafId=requestAnimationFrame(loop); }
 function stop(){ if(!playing) return; playing=false; if(rafId){cancelAnimationFrame(rafId); rafId=null;} document.getElementById('play').textContent='Play'; }
-function resetView(){ stop(); showFrame(0); fitWithPadding(); }
-
-function fitWithPadding(){
-  if(!viewer) return;
-  // Fit all atoms, then zoom out a bit so box/axes and labels aren't clipped.
-  viewer.zoomTo(); // fit
-  const isPhone = window.matchMedia('(max-width: 720px)').matches;
-  const factor = isPhone ? 0.66 : 0.88; // <1 => zoom OUT
-  viewer.zoom(factor);
-  viewer.render();
-}
+function resetView(){ stop(); showFrame(0); viewer.zoomTo(); viewer.render(); }
 
 function removeBox(){ for(const s of boxShapes) viewer.removeShape(s); boxShapes=[]; }
 function removeAxes(){ for(const s of axisShapes) viewer.removeShape(s); axisShapes=[]; for(const l of axisLabels) viewer.removeLabel(l); axisLabels=[]; }
@@ -246,58 +220,34 @@ function wireUI(){
   document.getElementById('slider').addEventListener('input', e=>{ if(!model) return; stop(); const v=Math.max(1,Math.min(nframes,+e.target.value))-1; showFrame(v); });
   document.getElementById('play').addEventListener('click', ()=>{ if(!model) return; if(playing) stop(); else play(); });
 
-  document.getElementById('chkBox').addEventListener('change', (e)=>{ if(e.target.checked) drawBoxOnce(); else removeBox(); fitWithPadding(); });
-  document.getElementById('chkAxes').addEventListener('change', (e)=>{ if(e.target.checked) drawAxesOnce(); else removeAxes(); fitWithPadding(); });
+  document.getElementById('chkBox').addEventListener('change', (e)=>{ if(e.target.checked) drawBoxOnce(); else removeBox(); viewer.render(); });
+  document.getElementById('chkAxes').addEventListener('change', (e)=>{ if(e.target.checked) drawAxesOnce(); else removeAxes(); viewer.render(); });
 
   document.getElementById('btnShowAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=true; renderElemTable(); applyBallsFromStates(); });
   document.getElementById('btnHideAll').addEventListener('click', ()=>{ for(const k in elemStates) elemStates[k].show=false; renderElemTable(); applyBallsFromStates(); });
 }
 
-function fitMobile(){
-  // On small screens, make the 3D viewer fill almost all vertical space under the top bar.
-  if (window.matchMedia('(max-width: 720px)').matches) {
-    const topbar = document.querySelector('.topbar');
-    const v = document.getElementById('viewer');
-    const topH = topbar ? topbar.offsetHeight : 0;
-    const margin = 16; // matches CSS margin around #viewer
-    const target = Math.max(260, window.innerHeight - topH - margin);
-    v.style.height = target + 'px';
-  }
-  // After CSS height changes, notify 3Dmol to resize its canvas
-  if (typeof viewer !== 'undefined' && viewer && typeof viewer.resize === 'function') {
-    try { viewer.resize(); viewer.render(); } catch(e) { /* ignore */ }
-  }
-}
-}
-
 async function init(){
   viewer=$3Dmol.createViewer('viewer',{backgroundColor:'white'});
-  const params = new URLSearchParams(location.search);
-  const pdbgz = params.get('pdb') || 'h2o.pdb.gz';
-  document.getElementById('note').textContent = 'Fetching ' + pdbgz + ' …';
+  const params = new URLSearchParams(location.search); const pdbgz = params.get('pdb') || 'h2o.pdb.gz'; document.getElementById('note').textContent = 'Fetching ' + pdbgz + ' …';
   try{
-    const resp = await fetch(pdbgz,{cache:'no-store'});
-    if(!resp.ok) throw new Error(resp.status+' '+resp.statusText);
-    const buf = await resp.arrayBuffer();
-    const pdb = pako.inflate(new Uint8Array(buf), {to:'string'});
-
+    const resp = await fetch(pdbgz,{cache:'no-store'}); if(!resp.ok) throw new Error(resp.status+' '+resp.statusText); const buf = await resp.arrayBuffer(); const pdb = pako.inflate(new Uint8Array(buf), {to:'string'});
     viewer.addModelsAsFrames(pdb, 'pdb', {keepH:true});
     model = viewer.getModel();
     patchElementsIfNeeded();
     buildElementStates();
     renderElemTable();
     applyBallsFromStates();
-    viewer.zoomTo(); viewer.render(); fitWithPadding();
+    viewer.zoomTo(); viewer.render();
 
     nframes = (model.getFrameCount && model.getFrameCount()) || (model.frames ? model.frames.length : 1) || 1;
     document.getElementById('tot').textContent = nframes;
     document.getElementById('slider').max = Math.max(1, nframes);
     showFrame(0);
 
-    // Start with Box/Axes OFF by default
+    // Start with Box/Axes OFF by default; only draw when toggled on
     if(document.getElementById('chkBox').checked) drawBoxOnce();
     if(document.getElementById('chkAxes').checked) drawAxesOnce();
-    fitWithPadding();
 
     document.getElementById('note').textContent = 'Frames: ' + nframes + ' (1 frame = 1 attosecond)';
   }catch(e){
@@ -305,9 +255,6 @@ async function init(){
     console.error(e);
   }
   wireUI();
-  fitMobile();
-  window.addEventListener('resize', fitMobile);
-  window.addEventListener('orientationchange', ()=>setTimeout(fitMobile, 120));
 }
 window.addEventListener('DOMContentLoaded', init);
 </script>
